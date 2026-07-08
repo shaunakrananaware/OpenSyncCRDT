@@ -4,7 +4,7 @@
 # statically, producing a binary that runs on a scratch/alpine base with no
 # libc dependency.
 
-FROM golang:1.22-alpine AS build
+FROM golang:1.23-alpine AS build
 
 # build-base provides gcc/musl for the SQLite CGO dependency.
 RUN apk add --no-cache build-base git
@@ -35,7 +35,7 @@ COPY --from=build /out/opensynccrdt /usr/local/bin/opensynccrdt
 # persist documents across container restarts.
 RUN mkdir -p /data && chown opensync:opensync /data
 VOLUME ["/data"]
-ENV SQLITE_PATH=/data/opensynccrdt.db
+ENV DATA_DIR=/data
 
 USER opensync
 EXPOSE 8080

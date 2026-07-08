@@ -1,24 +1,27 @@
-// Command opensynccrdt is the single-binary OpenSyncCRDT sync engine.
-//
-// At this stage it wires up the foundation — configuration, logging, and the
-// storage layer — and runs a graceful lifecycle. The transport and sync layers
-// are added on top of this foundation in later work.
+// Command opensynccrdt is the single-binary OpenSyncCRDT sync engine: a
+// local-first sync server that a developer can run with one binary or one
+// Docker command. It loads configuration, assembles the engine, and runs a
+// graceful HTTP/WebSocket lifecycle.
 package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"log/slog"
+	"net/http"
 	"os"
 	"os/signal"
 	"strings"
 	"syscall"
 
 	"github.com/opensynccrdt/opensynccrdt/internal/config"
-	"github.com/opensynccrdt/opensynccrdt/internal/storage"
-	"github.com/opensynccrdt/opensynccrdt/internal/storage/sqlite"
+	"github.com/opensynccrdt/opensynccrdt/pkg/engine"
 )
+
+// version is set at build time via -ldflags "-X main.version=...".
+var version = "dev"
 
 func main() {
 	if err := run(); err != nil {
@@ -29,7 +32,7 @@ func main() {
 
 func run() error {
 	var configPath string
-	flag.StringVar(&configPath, "config", "", "path to YAML config file (overrides CONFIG_FILE env)")
+	flag.StringVar(&configPath, "config", "", "path to YAML config file")
 	flag.Parse()
 
 	cfg, err := config.Load(configPath)
@@ -44,41 +47,61 @@ func run() error {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	store, err := openStore(ctx, cfg.Storage)
+	eng, err := engine.New(engine.Config{Full: &cfg})
 	if err != nil {
-		return fmt.Errorf("open storage: %w", err)
+		return err
 	}
-	defer func() {
-		if cerr := store.Close(); cerr != nil {
-			logger.Error("closing storage", "error", cerr)
+	defer eng.Close()
+
+	httpServer := &http.Server{
+		Addr:    cfg.Addr(),
+		Handler: eng.Handler(),
+	}
+	if cfg.Limits.ReadTimeout > 0 {
+		httpServer.ReadTimeout = cfg.Limits.ReadTimeout
+	}
+
+	serveErr := make(chan error, 1)
+	go func() {
+		logger.Info("OpenSyncCRDT listening",
+			"version", version,
+			"addr", cfg.Addr(),
+			"storage_backend", cfg.Storage.Backend,
+			"auth_mode", cfg.Auth.Mode,
+			"tls", cfg.TLS.Enabled,
+			"log_level", cfg.Log.Level,
+		)
+		var serr error
+		if cfg.TLS.Enabled {
+			serr = httpServer.ListenAndServeTLS(cfg.TLS.CertFile, cfg.TLS.KeyFile)
+		} else {
+			serr = httpServer.ListenAndServe()
 		}
+		if serr != nil && !errors.Is(serr, http.ErrServerClosed) {
+			serveErr <- serr
+		}
+		close(serveErr)
 	}()
 
-	logger.Info("OpenSyncCRDT foundation ready",
-		"addr", cfg.Addr(),
-		"storage_backend", cfg.Storage.Backend,
-		"auth_mode", cfg.Auth.Mode,
-		"log_level", cfg.Log.Level,
-	)
-
-	// The transport/sync layers will block here in later work. For now the
-	// process stays up until a shutdown signal so operators can validate the
-	// foundation end-to-end.
-	<-ctx.Done()
-	logger.Info("shutdown signal received, exiting")
-	return nil
-}
-
-// openStore selects and opens the configured storage backend. Backend
-// selection lives here (rather than in the storage package) so the storage
-// contract package need not import concrete backends.
-func openStore(ctx context.Context, cfg config.StorageConfig) (storage.Store, error) {
-	switch cfg.Backend {
-	case config.StorageSQLite:
-		return sqlite.Open(ctx, cfg)
-	default:
-		return nil, fmt.Errorf("unsupported storage backend %q", cfg.Backend)
+	select {
+	case serr := <-serveErr:
+		if serr != nil {
+			return fmt.Errorf("http server: %w", serr)
+		}
+		return nil
+	case <-ctx.Done():
+		logger.Info("shutdown signal received, draining connections")
 	}
+
+	stop() // a second Ctrl-C now hard-exits
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), cfg.Server.ShutdownTimeout)
+	defer cancel()
+	if err := httpServer.Shutdown(shutdownCtx); err != nil {
+		logger.Error("graceful shutdown timed out", "error", err)
+		_ = httpServer.Close()
+	}
+	logger.Info("shutdown complete")
+	return nil
 }
 
 func newLogger(cfg config.LogConfig) *slog.Logger {

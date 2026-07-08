@@ -8,11 +8,13 @@ docker-compose.yml
 /opensynccrdt
 /dist/
 
-# Local SQLite databases (WAL/SHM sidecar files included)
+# Local data directory + SQLite databases (WAL/SHM sidecar files included)
+/data/
 *.db
 *.db-wal
 *.db-shm
 
 # Local config overrides
+opensynccrdt.yaml
 config.yaml
 config.yml

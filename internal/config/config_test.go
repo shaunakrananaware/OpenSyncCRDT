@@ -31,8 +31,26 @@ func TestLoadDefaults(t *testing.T) {
 	if cfg.Storage.Backend != StorageSQLite {
 		t.Errorf("backend = %q, want sqlite", cfg.Storage.Backend)
 	}
+	if cfg.Storage.DataDir != "./data" {
+		t.Errorf("data dir = %q, want ./data", cfg.Storage.DataDir)
+	}
+	if cfg.Storage.SnapshotInterval != 100 {
+		t.Errorf("snapshot interval = %d, want 100", cfg.Storage.SnapshotInterval)
+	}
 	if cfg.Auth.WebhookTimeout != 3*time.Second {
 		t.Errorf("auth webhook timeout = %v, want 3s", cfg.Auth.WebhookTimeout)
+	}
+	if cfg.Limits.MaxConnections != 10000 {
+		t.Errorf("max connections = %d, want 10000", cfg.Limits.MaxConnections)
+	}
+	if cfg.Limits.MaxMessageSizeBytes != 1048576 {
+		t.Errorf("max message size = %d, want 1048576", cfg.Limits.MaxMessageSizeBytes)
+	}
+	if !cfg.Management.Enabled {
+		t.Errorf("management api should be enabled by default")
+	}
+	if len(cfg.CORS.AllowedOrigins) != 1 || cfg.CORS.AllowedOrigins[0] != "*" {
+		t.Errorf("cors origins = %v, want [*]", cfg.CORS.AllowedOrigins)
 	}
 }
 
@@ -42,7 +60,12 @@ func TestEnvOverrides(t *testing.T) {
 	t.Setenv("AUTH_MODE", "header")
 	t.Setenv("AUTH_HEADER_NAME", "X-Uid")
 	t.Setenv("WEBHOOK_TIMEOUT", "10s")
-	t.Setenv("SNAPSHOT_INTERVAL_OPS", "250")
+	t.Setenv("STORAGE_SNAPSHOT_INTERVAL", "250")
+	t.Setenv("DATA_DIR", "/srv/data")
+	t.Setenv("MAX_CONNECTIONS", "500")
+	t.Setenv("MAX_MESSAGE_SIZE_BYTES", "2097152")
+	t.Setenv("CORS_ALLOWED_ORIGINS", "https://a.com, https://b.com")
+	t.Setenv("MANAGEMENT_API_ENABLED", "false")
 
 	cfg, err := Load("")
 	if err != nil {
@@ -60,8 +83,23 @@ func TestEnvOverrides(t *testing.T) {
 	if cfg.Webhooks.Timeout != 10*time.Second {
 		t.Errorf("webhook timeout = %v, want 10s", cfg.Webhooks.Timeout)
 	}
-	if cfg.Snapshot.IntervalOps != 250 {
-		t.Errorf("snapshot interval = %d, want 250", cfg.Snapshot.IntervalOps)
+	if cfg.Storage.SnapshotInterval != 250 {
+		t.Errorf("snapshot interval = %d, want 250", cfg.Storage.SnapshotInterval)
+	}
+	if cfg.Storage.DataDir != "/srv/data" {
+		t.Errorf("data dir = %q, want /srv/data", cfg.Storage.DataDir)
+	}
+	if cfg.Limits.MaxConnections != 500 {
+		t.Errorf("max connections = %d, want 500", cfg.Limits.MaxConnections)
+	}
+	if cfg.Limits.MaxMessageSizeBytes != 2097152 {
+		t.Errorf("max message size = %d, want 2097152", cfg.Limits.MaxMessageSizeBytes)
+	}
+	if len(cfg.CORS.AllowedOrigins) != 2 || cfg.CORS.AllowedOrigins[0] != "https://a.com" {
+		t.Errorf("cors origins = %v", cfg.CORS.AllowedOrigins)
+	}
+	if cfg.Management.Enabled {
+		t.Errorf("management api should be disabled by env")
 	}
 }
 
@@ -101,7 +139,7 @@ auth:
   mode: webhook
   webhook_url: https://example.com/verify
 storage:
-  sqlite_path: /data/custom.db
+  data_dir: /data/custom
 `
 	if err := os.WriteFile(path, []byte(yaml), 0o644); err != nil {
 		t.Fatal(err)
@@ -123,8 +161,8 @@ storage:
 	if cfg.Auth.WebhookURL != "https://example.com/verify" {
 		t.Errorf("webhook url = %q", cfg.Auth.WebhookURL)
 	}
-	if cfg.Storage.SQLitePath != "/data/custom.db" {
-		t.Errorf("sqlite path = %q", cfg.Storage.SQLitePath)
+	if cfg.Storage.DataDir != "/data/custom" {
+		t.Errorf("data dir = %q", cfg.Storage.DataDir)
 	}
 }
 
@@ -135,9 +173,12 @@ func TestValidationErrors(t *testing.T) {
 	}{
 		{"bad port", func(c *Config) { c.Server.Port = 70000 }},
 		{"webhook mode without url", func(c *Config) { c.Auth.Mode = AuthModeWebhook }},
-		{"unknown backend", func(c *Config) { c.Storage.Backend = "postgres" }},
+		{"unknown backend", func(c *Config) { c.Storage.Backend = "cassandra" }},
+		{"postgres without url", func(c *Config) { c.Storage.Backend = StoragePostgres }},
 		{"bad log level", func(c *Config) { c.Log.Level = "loud" }},
-		{"zero snapshot interval", func(c *Config) { c.Snapshot.IntervalOps = 0 }},
+		{"zero snapshot interval", func(c *Config) { c.Storage.SnapshotInterval = 0 }},
+		{"tls without files", func(c *Config) { c.TLS.Enabled = true }},
+		{"cluster with sqlite", func(c *Config) { c.Cluster.Mode = true }},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -150,11 +191,28 @@ func TestValidationErrors(t *testing.T) {
 	}
 }
 
+func TestClusterWithPostgresIsValid(t *testing.T) {
+	cfg := Default()
+	cfg.Cluster.Mode = true
+	cfg.Storage.Backend = StoragePostgres
+	cfg.Storage.URL = "postgres://u:p@h/db"
+	cfg.Cluster.RedisURL = "redis://localhost:6379"
+	if err := cfg.Validate(); err != nil {
+		t.Fatalf("cluster+postgres should be valid: %v", err)
+	}
+}
+
 func TestInvalidEnvValues(t *testing.T) {
 	clearEnv(t)
 	t.Setenv("PORT", "not-a-number")
 	if _, err := Load(""); err == nil {
 		t.Error("expected error for non-numeric PORT")
+	}
+	os.Unsetenv("PORT")
+
+	t.Setenv("CLUSTER_MODE", "maybe")
+	if _, err := Load(""); err == nil {
+		t.Error("expected error for non-boolean CLUSTER_MODE")
 	}
 }
 
@@ -175,14 +233,22 @@ func TestUnknownConfigFileKeyRejected(t *testing.T) {
 func clearEnv(t *testing.T) {
 	t.Helper()
 	keys := []string{
-		"CONFIG_FILE", "HOST", "PORT", "SERVER_SHUTDOWN_TIMEOUT",
-		"STORAGE_BACKEND", "SQLITE_PATH", "SQLITE_BUSY_TIMEOUT", "STORAGE_MAX_OPEN_CONNS",
+		"HOST", "PORT",
+		"TLS_ENABLED", "TLS_CERT_FILE", "TLS_KEY_FILE",
+		"STORAGE_BACKEND", "DATA_DIR", "STORAGE_URL", "STORAGE_SNAPSHOT_INTERVAL",
+		"STORAGE_POSTGRES_MAX_CONNS", "STORAGE_POSTGRES_SSL_MODE", "STORAGE_MYSQL_MAX_CONNS",
 		"AUTH_MODE", "AUTH_HEADER_NAME", "AUTH_WEBHOOK_URL", "AUTH_WEBHOOK_SECRET",
 		"AUTH_WEBHOOK_TIMEOUT", "AUTH_WEBHOOK_CACHE_TTL",
 		"CONFLICT_RESOLVER_URL", "CONFLICT_RESOLVER_SECRET", "CONFLICT_RESOLVER_TIMEOUT",
 		"WEBHOOK_SECRET", "WEBHOOK_TIMEOUT", "WEBHOOK_MAX_RETRIES",
 		"WEBHOOK_ON_DOCUMENT_CREATED_URL", "WEBHOOK_ON_DOCUMENT_UPDATED_URL",
-		"SNAPSHOT_INTERVAL_OPS", "LOG_LEVEL", "LOG_FORMAT",
+		"WEBHOOK_ON_DOCUMENT_DELETED_URL", "WEBHOOK_ON_CLIENT_CONNECTED_URL",
+		"WEBHOOK_ON_CLIENT_DISCONNECTED_URL", "WEBHOOK_ON_SYNC_ERROR_URL",
+		"CLUSTER_MODE", "CLUSTER_BACKEND", "CLUSTER_REDIS_URL",
+		"MAX_CONNECTIONS", "MAX_MESSAGE_SIZE_BYTES", "PING_INTERVAL", "PONG_TIMEOUT",
+		"WRITE_TIMEOUT", "READ_TIMEOUT",
+		"CORS_ALLOWED_ORIGINS", "MANAGEMENT_API_ENABLED", "MANAGEMENT_API_KEY",
+		"LOG_LEVEL", "LOG_FORMAT",
 	}
 	for _, k := range keys {
 		if _, ok := os.LookupEnv(k); ok {

@@ -1,21 +1,28 @@
 # OpenSyncCRDT example configuration.
 #
 # Every value here has a sensible default — this file exists only to document
-# what is configurable. Copy it, delete what you don't need, and point the
-# engine at it with `--config path.yaml` or the CONFIG_FILE environment
-# variable. Any single value can also be overridden with an environment
-# variable (shown in [brackets]); environment variables win over this file.
+# what is configurable. Copy it to ./opensynccrdt.yaml (or point the engine at
+# it with `--config path.yaml`) and delete what you don't need. Any single value
+# can also be overridden with an environment variable (shown in [brackets]);
+# environment variables always win over this file.
 
 server:
   host: "0.0.0.0"            # [HOST]
   port: 8080                 # [PORT]
-  shutdown_timeout: 15s      # [SERVER_SHUTDOWN_TIMEOUT]
+
+tls:
+  enabled: false             # [TLS_ENABLED]
+  cert_file: ""              # [TLS_CERT_FILE]
+  key_file: ""               # [TLS_KEY_FILE]
 
 storage:
-  backend: sqlite            # [STORAGE_BACKEND] — sqlite (default)
-  sqlite_path: ./opensynccrdt.db   # [SQLITE_PATH]
-  busy_timeout: 5s           # [SQLITE_BUSY_TIMEOUT] — wait this long for a write lock
-  max_open_conns: 1          # [STORAGE_MAX_OPEN_CONNS]
+  backend: sqlite            # [STORAGE_BACKEND] — sqlite (default), postgres, mysql
+  data_dir: ./data           # [DATA_DIR] — SQLite db lives at DATA_DIR/opensynccrdt.db
+  url: ""                    # [STORAGE_URL] — connection string for postgres/mysql
+  snapshot_interval: 100     # [STORAGE_SNAPSHOT_INTERVAL] — snapshot every N committed ops
+  postgres_max_conns: 10     # [STORAGE_POSTGRES_MAX_CONNS]
+  postgres_ssl_mode: require # [STORAGE_POSTGRES_SSL_MODE]
+  mysql_max_conns: 10        # [STORAGE_MYSQL_MAX_CONNS]
 
 auth:
   # none   — accept all connections (default; local dev, trusted networks)
@@ -28,12 +35,6 @@ auth:
   webhook_timeout: 3s        # [AUTH_WEBHOOK_TIMEOUT]
   webhook_cache_ttl: 60s     # [AUTH_WEBHOOK_CACHE_TTL]  (cache allow/deny per token+doc)
 
-conflict:
-  # When resolver_url is empty, Automerge resolves conflicts automatically.
-  resolver_url: ""           # [CONFLICT_RESOLVER_URL]
-  resolver_secret: ""        # [CONFLICT_RESOLVER_SECRET]
-  timeout: 5s                # [CONFLICT_RESOLVER_TIMEOUT] — fall back to auto-merge on timeout
-
 webhooks:
   secret: ""                 # [WEBHOOK_SECRET] — HMAC-SHA256 signing secret
   timeout: 5s                # [WEBHOOK_TIMEOUT]
@@ -42,12 +43,39 @@ webhooks:
   # event is silently skipped. Each event also has an env override of the form
   # WEBHOOK_<EVENT>_URL, e.g. WEBHOOK_ON_DOCUMENT_CREATED_URL.
   events:
-    # on_document_created: https://yourapp.com/hooks/created
-    # on_document_updated: https://yourapp.com/hooks/updated
-    # on_document_deleted: https://yourapp.com/hooks/deleted
+    # on_document_created:      https://yourapp.com/hooks
+    # on_document_updated:      https://yourapp.com/hooks
+    # on_document_deleted:      https://yourapp.com/hooks
+    # on_client_connected:      https://yourapp.com/hooks
+    # on_client_disconnected:   https://yourapp.com/hooks
+    # on_sync_error:            https://yourapp.com/hooks
 
-snapshot:
-  interval_ops: 100          # [SNAPSHOT_INTERVAL_OPS] — snapshot every N committed ops
+conflict:
+  # When resolver_url is empty, Automerge resolves conflicts automatically.
+  resolver_url: ""           # [CONFLICT_RESOLVER_URL]
+  resolver_secret: ""        # [CONFLICT_RESOLVER_SECRET]
+  timeout: 5s                # [CONFLICT_RESOLVER_TIMEOUT] — fall back to auto-merge on timeout
+
+cluster:
+  mode: false                # [CLUSTER_MODE] — single node when false
+  backend: redis             # [CLUSTER_BACKEND]
+  redis_url: ""              # [CLUSTER_REDIS_URL]
+
+limits:
+  max_connections: 10000     # [MAX_CONNECTIONS]
+  max_message_size_bytes: 1048576  # [MAX_MESSAGE_SIZE_BYTES] — 1 MiB
+  ping_interval: 30s         # [PING_INTERVAL]
+  pong_timeout: 10s          # [PONG_TIMEOUT]
+  write_timeout: 10s         # [WRITE_TIMEOUT]
+  read_timeout: 0s           # [READ_TIMEOUT] — 0 means no read deadline
+
+cors:
+  allowed_origins:           # [CORS_ALLOWED_ORIGINS] — comma-separated in env
+    - "*"
+
+management:
+  enabled: true              # [MANAGEMENT_API_ENABLED]
+  key: ""                    # [MANAGEMENT_API_KEY] — if set, /api/v1/ requires Bearer <key>
 
 log:
   level: info                # [LOG_LEVEL]  — debug, info, warn, error
