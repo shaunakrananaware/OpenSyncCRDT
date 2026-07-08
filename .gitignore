@@ -1,2 +1,18 @@
+# Legacy prototype (Hocuspocus-based), kept out of the Go module.
 crdt-app-client
 crdt-app-server
+.claude
+docker-compose.yml
+
+# Build artifacts
+/opensynccrdt
+/dist/
+
+# Local SQLite databases (WAL/SHM sidecar files included)
+*.db
+*.db-wal
+*.db-shm
+
+# Local config overrides
+config.yaml
+config.yml

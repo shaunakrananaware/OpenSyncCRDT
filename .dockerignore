@@ -1,0 +1,13 @@
+# Keep the build context small and reproducible.
+crdt-app-client
+crdt-app-server
+.claude
+.git
+dist
+opensynccrdt
+*.db
+*.db-wal
+*.db-shm
+config.yaml
+config.yml
+docker-compose.yml

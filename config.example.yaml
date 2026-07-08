@@ -1,0 +1,54 @@
+# OpenSyncCRDT example configuration.
+#
+# Every value here has a sensible default — this file exists only to document
+# what is configurable. Copy it, delete what you don't need, and point the
+# engine at it with `--config path.yaml` or the CONFIG_FILE environment
+# variable. Any single value can also be overridden with an environment
+# variable (shown in [brackets]); environment variables win over this file.
+
+server:
+  host: "0.0.0.0"            # [HOST]
+  port: 8080                 # [PORT]
+  shutdown_timeout: 15s      # [SERVER_SHUTDOWN_TIMEOUT]
+
+storage:
+  backend: sqlite            # [STORAGE_BACKEND] — sqlite (default)
+  sqlite_path: ./opensynccrdt.db   # [SQLITE_PATH]
+  busy_timeout: 5s           # [SQLITE_BUSY_TIMEOUT] — wait this long for a write lock
+  max_open_conns: 1          # [STORAGE_MAX_OPEN_CONNS]
+
+auth:
+  # none   — accept all connections (default; local dev, trusted networks)
+  # header — trust an upstream-injected identity header
+  # webhook — call your endpoint to authorize every new connection
+  mode: none                 # [AUTH_MODE]
+  header_name: X-User-ID     # [AUTH_HEADER_NAME]        (header mode)
+  webhook_url: ""            # [AUTH_WEBHOOK_URL]        (webhook mode, required)
+  webhook_secret: ""         # [AUTH_WEBHOOK_SECRET]     (HMAC signing secret)
+  webhook_timeout: 3s        # [AUTH_WEBHOOK_TIMEOUT]
+  webhook_cache_ttl: 60s     # [AUTH_WEBHOOK_CACHE_TTL]  (cache allow/deny per token+doc)
+
+conflict:
+  # When resolver_url is empty, Automerge resolves conflicts automatically.
+  resolver_url: ""           # [CONFLICT_RESOLVER_URL]
+  resolver_secret: ""        # [CONFLICT_RESOLVER_SECRET]
+  timeout: 5s                # [CONFLICT_RESOLVER_TIMEOUT] — fall back to auto-merge on timeout
+
+webhooks:
+  secret: ""                 # [WEBHOOK_SECRET] — HMAC-SHA256 signing secret
+  timeout: 5s                # [WEBHOOK_TIMEOUT]
+  max_retries: 3             # [WEBHOOK_MAX_RETRIES]
+  # Map an event name to the URL that should receive it. An unset URL means the
+  # event is silently skipped. Each event also has an env override of the form
+  # WEBHOOK_<EVENT>_URL, e.g. WEBHOOK_ON_DOCUMENT_CREATED_URL.
+  events:
+    # on_document_created: https://yourapp.com/hooks/created
+    # on_document_updated: https://yourapp.com/hooks/updated
+    # on_document_deleted: https://yourapp.com/hooks/deleted
+
+snapshot:
+  interval_ops: 100          # [SNAPSHOT_INTERVAL_OPS] — snapshot every N committed ops
+
+log:
+  level: info                # [LOG_LEVEL]  — debug, info, warn, error
+  format: json               # [LOG_FORMAT] — json or text
