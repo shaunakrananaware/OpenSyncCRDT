@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: opensynccrdt-data
+  namespace: opensynccrdt
+  labels:
+    app.kubernetes.io/name: opensynccrdt
+# Persistent storage for the SQLite database in single-node deployments.
+#
+# ReadWriteOnce means one node mounts it at a time, which matches SQLite's
+# single-writer model and the single-replica Deployment. In a Postgres-backed
+# cluster this PVC is not used — drop the volume from the Deployment and let the
+# database provide durability.
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi

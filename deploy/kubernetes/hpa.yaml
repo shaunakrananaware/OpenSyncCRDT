@@ -1,0 +1,34 @@
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: opensynccrdt
+  namespace: opensynccrdt
+  labels:
+    app.kubernetes.io/name: opensynccrdt
+# Horizontal autoscaling only makes sense for a Postgres-backed cluster
+# (CLUSTER_MODE=true): SQLite's single-writer model and RWO volume pin the
+# default deployment to one replica. Apply this once you have moved to Postgres
+# + Redis and removed the PVC from the Deployment.
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: opensynccrdt
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300

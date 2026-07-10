@@ -1,0 +1,44 @@
+# Fly.io deployment for OpenSyncCRDT.
+#
+#   fly launch --copy-config --dockerfile deploy/docker/Dockerfile
+#   fly volumes create opensynccrdt_data --size 1
+#   fly deploy
+#
+# This runs a single node with the SQLite backend on a persistent volume. For a
+# Postgres-backed cluster set STORAGE_BACKEND/STORAGE_URL/CLUSTER_* as secrets
+# (`fly secrets set ...`) and scale to multiple machines.
+app = "opensynccrdt"
+primary_region = "iad"
+
+[build]
+  dockerfile = "../docker/Dockerfile"
+
+[env]
+  HOST = "0.0.0.0"
+  PORT = "8080"
+  DATA_DIR = "/data"
+  STORAGE_BACKEND = "sqlite"
+  LOG_FORMAT = "json"
+  LOG_LEVEL = "info"
+
+[[mounts]]
+  source = "opensynccrdt_data"
+  destination = "/data"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = false
+  auto_start_machines = true
+  min_machines_running = 1
+
+  [[http_service.checks]]
+    method = "get"
+    path = "/health"
+    interval = "10s"
+    timeout = "3s"
+    grace_period = "5s"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"

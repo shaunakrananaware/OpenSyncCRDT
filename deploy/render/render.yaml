@@ -1,0 +1,30 @@
+# Render.com blueprint for OpenSyncCRDT.
+#
+# Commit this file to your repo and create a new Blueprint on Render pointing at
+# it. This provisions a single web service with the SQLite backend on a
+# persistent disk.
+#
+# For a Postgres-backed cluster, add a Render Postgres instance and Redis, then
+# set STORAGE_BACKEND/STORAGE_URL/CLUSTER_MODE/CLUSTER_REDIS_URL below.
+services:
+  - type: web
+    name: opensynccrdt
+    runtime: image
+    plan: starter
+    dockerfilePath: ./deploy/docker/Dockerfile
+    healthCheckPath: /health
+    envVars:
+      - key: HOST
+        value: "0.0.0.0"
+      - key: DATA_DIR
+        value: /data
+      - key: STORAGE_BACKEND
+        value: sqlite
+      - key: LOG_FORMAT
+        value: json
+      - key: LOG_LEVEL
+        value: info
+    disk:
+      name: opensynccrdt-data
+      mountPath: /data
+      sizeGB: 1

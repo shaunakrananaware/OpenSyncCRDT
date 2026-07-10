@@ -1,0 +1,46 @@
+# OpenSyncCRDT — security-hardened image (opensynccrdt/server:distroless).
+#
+# Runs on gcr.io/distroless/static: no shell, no package manager, minimal
+# attack surface. The base ships CA certificates and a nonroot user (uid
+# 65532). The binary is the same fully static, glibc-built, netgo-tagged
+# artifact as the other variants, so it needs nothing from the base beyond
+# those certificates.
+#
+# (It must still be *built* against glibc — the automerge-go prebuilt archive
+# references glibc LFS64 symbols that musl lacks — so the build stage is
+# debian-based even though the runtime is distroless/static.)
+#
+# Build from the repository root:
+#   docker build -f deploy/docker/Dockerfile.distroless -t opensynccrdt/server:distroless .
+
+FROM golang:1.23-bookworm AS build
+
+WORKDIR /src
+
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+
+ARG VERSION=docker
+RUN CGO_ENABLED=1 go build -tags netgo \
+    -ldflags "-s -w -X main.version=${VERSION} -linkmode external -extldflags '-static'" \
+    -o /out/opensynccrdt ./cmd/opensynccrdt
+
+# Pre-create the data directory owned by the distroless nonroot uid, since the
+# runtime image has no shell to mkdir/chown at build time.
+RUN mkdir -p /data && chown 65532:65532 /data
+
+# --- runtime ---------------------------------------------------------------
+FROM gcr.io/distroless/static-debian12:nonroot
+
+COPY --from=build /out/opensynccrdt /usr/local/bin/opensynccrdt
+COPY --from=build --chown=65532:65532 /data /data
+
+VOLUME ["/data"]
+ENV DATA_DIR=/data
+
+USER nonroot
+EXPOSE 8080
+
+ENTRYPOINT ["/usr/local/bin/opensynccrdt"]

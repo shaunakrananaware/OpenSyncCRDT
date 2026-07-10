@@ -1,13 +1,17 @@
-# OpenSyncCRDT — single static binary in a minimal image.
+# OpenSyncCRDT — standard image (opensynccrdt/server:latest).
 #
-# Convenience Dockerfile for `docker build .` at the repo root. It is identical
-# to deploy/docker/Dockerfile (the standard image); the three published variants
-# (standard, alpine, distroless) live under deploy/docker/.
+# A general-purpose runtime on debian-slim: familiar base, a shell for
+# debugging, CA certificates for outbound webhook TLS.
 #
-# The binary is fully statically linked but must be BUILT against glibc, not
-# musl: automerge-go ships a prebuilt Rust archive referencing glibc's LFS64
-# symbols (stat64/open64) that musl does not provide. `-tags netgo` supplies a
-# pure-Go DNS resolver so the static binary resolves webhook hosts at runtime.
+# The binary is built once and fully statically linked. It must be built against
+# glibc (not musl): the automerge-go dependency ships a prebuilt Rust archive
+# that references glibc's LFS64 symbols (stat64/open64), which musl does not
+# provide. `-tags netgo` gives a pure-Go DNS resolver so the static binary
+# resolves webhook hostnames without needing glibc's NSS at runtime. The result
+# runs unchanged on debian, alpine, or distroless.
+#
+# Build from the repository root:
+#   docker build -f deploy/docker/Dockerfile -t opensynccrdt/server:latest .
 
 FROM golang:1.23-bookworm AS build
 
@@ -27,7 +31,6 @@ RUN CGO_ENABLED=1 go build -tags netgo \
 # --- runtime ---------------------------------------------------------------
 FROM debian:12-slim
 
-# ca-certificates lets the engine make outbound HTTPS webhook calls.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates \
     && rm -rf /var/lib/apt/lists/* \

@@ -1,0 +1,222 @@
+# Release: runs on every semver tag (vMAJOR.MINOR.PATCH).
+#
+# Runs the full test suite, builds and pushes the three Docker image variants
+# with semver tags, builds release binaries for every supported platform, and
+# publishes a GitHub Release with the binaries attached and notes drawn from
+# CHANGELOG.md.
+#
+# Required repository secrets:
+#   DOCKERHUB_USERNAME  Docker Hub account with push access to opensynccrdt/*
+#   DOCKERHUB_TOKEN     Docker Hub access token
+name: Release
+
+on:
+  push:
+    tags: ["v*.*.*"]
+
+permissions:
+  contents: write  # create releases and upload assets
+
+env:
+  GO_VERSION: "1.23"
+
+jobs:
+  test:
+    name: Full test suite
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: opensync
+          POSTGRES_PASSWORD: opensync
+          POSTGRES_DB: opensynccrdt
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U opensync -d opensynccrdt"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+      mysql:
+        image: mysql:8
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_USER: opensync
+          MYSQL_PASSWORD: opensync
+          MYSQL_DATABASE: opensynccrdt
+        ports: ["3306:3306"]
+        options: >-
+          --health-cmd "mysqladmin ping -h 127.0.0.1 -uopensync -popensync"
+          --health-interval 5s --health-timeout 5s --health-retries 15
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      TEST_POSTGRES_URL: postgres://opensync:opensync@localhost:5432/opensynccrdt?sslmode=disable
+      TEST_MYSQL_URL: mysql://opensync:opensync@localhost:3306/opensynccrdt
+      TEST_REDIS_URL: redis://localhost:6379
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+      - name: go test -race (all backends)
+        run: |
+          CGO_ENABLED=1 go test -race \
+            ./cmd/... ./internal/... ./pkg/... ./tests/integration/...
+
+  docker:
+    name: Build & push Docker images
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      # Standard image: latest, vMAJOR, vMAJOR.MINOR, vMAJOR.MINOR.PATCH.
+      - name: Metadata (standard)
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: opensynccrdt/server
+          tags: |
+            type=raw,value=latest
+            type=semver,pattern=v{{major}}
+            type=semver,pattern=v{{major}}.{{minor}}
+            type=semver,pattern=v{{major}}.{{minor}}.{{patch}}
+      - name: Build & push standard
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: deploy/docker/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: VERSION=${{ github.ref_name }}
+
+      # Minimal (alpine) variant: alpine, alpine-vMAJOR.MINOR.PATCH.
+      - name: Metadata (alpine)
+        id: meta_alpine
+        uses: docker/metadata-action@v5
+        with:
+          images: opensynccrdt/server
+          flavor: |
+            latest=false
+            prefix=alpine-,onlatest=false
+          tags: |
+            type=raw,value=alpine,prefix=
+            type=semver,pattern=v{{major}}.{{minor}}.{{patch}}
+      - name: Build & push alpine
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: deploy/docker/Dockerfile.alpine
+          push: true
+          tags: ${{ steps.meta_alpine.outputs.tags }}
+          build-args: VERSION=${{ github.ref_name }}
+
+      # Security-hardened (distroless) variant.
+      - name: Metadata (distroless)
+        id: meta_distroless
+        uses: docker/metadata-action@v5
+        with:
+          images: opensynccrdt/server
+          flavor: |
+            latest=false
+            prefix=distroless-,onlatest=false
+          tags: |
+            type=raw,value=distroless,prefix=
+            type=semver,pattern=v{{major}}.{{minor}}.{{patch}}
+      - name: Build & push distroless
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: deploy/docker/Dockerfile.distroless
+          push: true
+          tags: ${{ steps.meta_distroless.outputs.tags }}
+          build-args: VERSION=${{ github.ref_name }}
+
+  binaries:
+    name: Build ${{ matrix.goos }}/${{ matrix.goarch }}
+    needs: test
+    # Supported platforms only: linux/{amd64,arm64} + darwin/{amd64,arm64}.
+    # windows is out of scope — automerge-go ships no windows archive.
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { goos: linux,  goarch: amd64, runner: ubuntu-latest, make: dist-linux-amd64 }
+          - { goos: linux,  goarch: arm64, runner: ubuntu-latest, make: dist-linux-arm64 }
+          - { goos: darwin, goarch: amd64, runner: macos-13 }
+          - { goos: darwin, goarch: arm64, runner: macos-14 }
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+      - name: Install zig
+        if: matrix.goos == 'linux'
+        uses: mlugg/setup-zig@v1
+        with:
+          version: 0.13.0
+      - name: Build (linux, static via zig)
+        if: matrix.goos == 'linux'
+        run: make ${{ matrix.make }} VERSION=${{ github.ref_name }}
+      - name: Build (darwin, native cgo)
+        if: matrix.goos == 'darwin'
+        run: |
+          CGO_ENABLED=1 GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} \
+            go build -ldflags "-s -w -X main.version=${{ github.ref_name }}" \
+            -o dist/opensynccrdt-${{ matrix.goos }}-${{ matrix.goarch }} ./cmd/opensynccrdt
+      - name: Upload binary artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: opensynccrdt-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: dist/opensynccrdt-${{ matrix.goos }}-${{ matrix.goarch }}
+          if-no-files-found: error
+
+  release:
+    name: Publish GitHub Release
+    needs: [binaries, docker]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download all binaries
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+      - name: Extract release notes from CHANGELOG.md
+        id: notes
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          notes_file="$(mktemp)"
+          if [ -f CHANGELOG.md ]; then
+            # Print the body under "## [<version>]" up to the next "## " heading.
+            awk -v ver="$version" '
+              $0 ~ "^## \\[" ver "\\]" { grab=1; next }
+              grab && /^## / { exit }
+              grab { print }
+            ' CHANGELOG.md > "$notes_file"
+          fi
+          if [ -s "$notes_file" ]; then
+            echo "have_notes=true" >> "$GITHUB_OUTPUT"
+            echo "notes_path=$notes_file" >> "$GITHUB_OUTPUT"
+          else
+            echo "have_notes=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/opensynccrdt-*
+          body_path: ${{ steps.notes.outputs.have_notes == 'true' && steps.notes.outputs.notes_path || '' }}
+          generate_release_notes: ${{ steps.notes.outputs.have_notes != 'true' }}
+          fail_on_unmatched_files: true

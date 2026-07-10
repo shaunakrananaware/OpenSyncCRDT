@@ -1,0 +1,33 @@
+[Unit]
+Description=OpenSyncCRDT local-first sync engine
+Documentation=https://github.com/opensynccrdt/opensynccrdt
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# Configuration is read from the environment file and/or the config file below.
+# Edit /etc/opensynccrdt/opensynccrdt.env to set STORAGE_BACKEND, AUTH_MODE, etc.
+EnvironmentFile=-/etc/opensynccrdt/opensynccrdt.env
+ExecStart=/usr/local/bin/opensynccrdt --config /etc/opensynccrdt/config.yaml
+Restart=on-failure
+RestartSec=5s
+
+# Dedicated unprivileged user, created by install.sh.
+User=opensync
+Group=opensync
+
+# Persistent data directory for the SQLite backend.
+StateDirectory=opensynccrdt
+Environment=DATA_DIR=/var/lib/opensynccrdt
+
+# Hardening.
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ReadWritePaths=/var/lib/opensynccrdt
+
+[Install]
+WantedBy=multi-user.target

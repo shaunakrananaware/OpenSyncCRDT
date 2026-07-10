@@ -1,0 +1,31 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: opensynccrdt
+  namespace: opensynccrdt
+  labels:
+    app.kubernetes.io/name: opensynccrdt
+  annotations:
+    # Sticky sessions are REQUIRED in cluster mode: a WebSocket connection must
+    # stay pinned to the node that accepted it for its whole lifetime. Cross-node
+    # delivery of operations is handled by Redis pub/sub, not by re-balancing
+    # the socket.
+    nginx.ingress.kubernetes.io/affinity: "cookie"
+    nginx.ingress.kubernetes.io/affinity-mode: "persistent"
+    nginx.ingress.kubernetes.io/session-cookie-name: "opensynccrdt-affinity"
+    # Long-lived WebSocket connections need generous proxy timeouts.
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: sync.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: opensynccrdt
+                port:
+                  name: http

@@ -1,0 +1,15 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: opensynccrdt
+  namespace: opensynccrdt
+  labels:
+    app.kubernetes.io/name: opensynccrdt
+# Keeps at least one node serving during voluntary disruptions (node drains,
+# rolling updates). Meaningful only when running more than one replica
+# (Postgres-backed cluster); harmless with a single replica.
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: opensynccrdt

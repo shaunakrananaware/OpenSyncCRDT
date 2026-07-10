@@ -1,0 +1,120 @@
+# Default values for the OpenSyncCRDT chart.
+# Override with --set or a custom values file.
+
+replicaCount: 1
+
+image:
+  repository: opensynccrdt/server
+  tag: ""          # defaults to .Chart.AppVersion when empty
+  pullPolicy: IfNotPresent
+
+nameOverride: ""
+fullnameOverride: ""
+
+server:
+  host: "0.0.0.0"
+  port: 8080
+  logLevel: info   # debug, info, warn, error
+  logFormat: json  # json, text
+
+# Storage backend. sqlite (default) uses a PersistentVolumeClaim; postgres and
+# mysql use the external database at storage.url.
+storage:
+  backend: sqlite  # sqlite, postgres, mysql
+  url: ""          # postgres://user:pass@host:5432/db  |  mysql://user:pass@host:3306/db
+  snapshotInterval: 100
+  postgres:
+    maxConns: 10
+    sslMode: require
+  mysql:
+    maxConns: 10
+
+# Auth mode: none (default), header, or webhook.
+auth:
+  mode: none
+  headerName: X-User-ID
+  webhookUrl: ""
+  webhookSecret: ""
+  webhookTimeout: 3s
+  webhookCacheTtl: 60s
+
+# Outbound event webhooks. Leave URLs empty to disable individual events.
+webhooks:
+  secret: ""
+  timeout: 5s
+  maxRetries: 3
+  onDocumentCreated: ""
+  onDocumentUpdated: ""
+  onDocumentDeleted: ""
+  onClientConnected: ""
+  onClientDisconnected: ""
+  onSyncError: ""
+
+# Custom conflict resolver webhook. Empty = automatic Automerge resolution.
+conflictResolver:
+  url: ""
+  secret: ""
+  timeout: 5s
+
+# Multi-node clustering. Requires backend postgres or mysql (never sqlite).
+cluster:
+  mode: false
+  backend: redis
+  redisUrl: ""
+
+limits:
+  maxConnections: 10000
+  maxMessageSizeBytes: 1048576
+  pingInterval: 30s
+  pongTimeout: 10s
+  writeTimeout: 10s
+  readTimeout: "0"
+
+cors:
+  allowedOrigins: "*"
+
+managementApi:
+  enabled: true
+  key: ""          # if set, /api/v1/ requires Authorization: Bearer <key>
+
+# Persistence for the SQLite backend. Ignored when storage.backend is not sqlite.
+persistence:
+  enabled: true
+  size: 10Gi
+  storageClass: ""
+  accessMode: ReadWriteOnce
+
+service:
+  type: ClusterIP
+  port: 80
+
+ingress:
+  enabled: false
+  className: nginx
+  host: sync.example.com
+  # Cookie affinity is required in cluster mode for WebSocket sticky sessions.
+  annotations:
+    nginx.ingress.kubernetes.io/affinity: "cookie"
+    nginx.ingress.kubernetes.io/affinity-mode: "persistent"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+  tls: []
+
+autoscaling:
+  enabled: false
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: "1"
+    memory: 512Mi
+
+nodeSelector: {}
+tolerations: []
+affinity: {}

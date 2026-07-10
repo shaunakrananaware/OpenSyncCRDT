@@ -1,0 +1,163 @@
+# Continuous integration: runs on every pull request and push to main.
+#
+# Mirrors the spec's CI requirements: go vet, staticcheck, race-enabled unit
+# tests, integration tests against all three storage backends (plus Redis for
+# cluster tests), release binary builds for every supported platform, and a
+# Docker build that does not push.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  GO_VERSION: "1.23"
+
+jobs:
+  lint:
+    name: Lint (vet + staticcheck)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+      - name: go vet
+        run: go vet ./cmd/... ./internal/... ./pkg/...
+      - name: staticcheck
+        uses: dominikh/staticcheck-action@v1
+        with:
+          version: latest
+          install-go: false
+
+  test:
+    name: Unit tests (race)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+      # CGO is required for the SQLite and automerge-go cores; the ubuntu
+      # runner already provides gcc + glibc.
+      - name: go test -race
+        run: CGO_ENABLED=1 go test -race ./cmd/... ./internal/... ./pkg/...
+
+  integration:
+    name: Integration (SQLite + Postgres + MySQL + Redis)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: opensync
+          POSTGRES_PASSWORD: opensync
+          POSTGRES_DB: opensynccrdt
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U opensync -d opensynccrdt"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+      mysql:
+        image: mysql:8
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_USER: opensync
+          MYSQL_PASSWORD: opensync
+          MYSQL_DATABASE: opensynccrdt
+        ports: ["3306:3306"]
+        options: >-
+          --health-cmd "mysqladmin ping -h 127.0.0.1 -uopensync -popensync"
+          --health-interval 5s --health-timeout 5s --health-retries 15
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      # The storage/cluster tests skip themselves unless these are set, so the
+      # same suite stays hermetic locally and exercises real backends here.
+      TEST_POSTGRES_URL: postgres://opensync:opensync@localhost:5432/opensynccrdt?sslmode=disable
+      TEST_MYSQL_URL: mysql://opensync:opensync@localhost:3306/opensynccrdt
+      TEST_REDIS_URL: redis://localhost:6379
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+      - name: Integration tests against all backends
+        run: |
+          CGO_ENABLED=1 go test -race \
+            ./internal/storage/... \
+            ./internal/cluster/... \
+            ./tests/integration/...
+
+  build:
+    name: Build ${{ matrix.goos }}/${{ matrix.goarch }}
+    # Supported platforms: linux/{amd64,arm64} + darwin/{amd64,arm64}. windows
+    # is out of scope — automerge-go ships no windows archive, so it cannot link.
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { goos: linux,  goarch: amd64, runner: ubuntu-latest, make: dist-linux-amd64 }
+          - { goos: linux,  goarch: arm64, runner: ubuntu-latest, make: dist-linux-arm64 }
+          - { goos: darwin, goarch: amd64, runner: macos-13,      make: "" }
+          - { goos: darwin, goarch: arm64, runner: macos-14,      make: "" }
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+      # zig provides the C cross-toolchain for the linux static builds. The
+      # darwin runners build natively with the platform toolchain instead.
+      - name: Install zig
+        if: matrix.goos == 'linux'
+        uses: mlugg/setup-zig@v1
+        with:
+          version: 0.13.0
+      - name: Build (linux, static via zig)
+        if: matrix.goos == 'linux'
+        run: make ${{ matrix.make }}
+      - name: Build (darwin, native cgo)
+        if: matrix.goos == 'darwin'
+        run: |
+          CGO_ENABLED=1 GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} \
+            go build -ldflags "-s -w -X main.version=ci" \
+            -o dist/opensynccrdt-${{ matrix.goos }}-${{ matrix.goarch }} ./cmd/opensynccrdt
+      - name: Upload binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: opensynccrdt-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: dist/opensynccrdt-${{ matrix.goos }}-${{ matrix.goarch }}
+          if-no-files-found: error
+
+  docker:
+    name: Docker build (no push)
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - { file: deploy/docker/Dockerfile,            tag: latest }
+          - { file: deploy/docker/Dockerfile.alpine,     tag: alpine }
+          - { file: deploy/docker/Dockerfile.distroless, tag: distroless }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Build ${{ matrix.tag }} image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.file }}
+          push: false
+          tags: opensynccrdt/server:${{ matrix.tag }}
+          build-args: VERSION=ci

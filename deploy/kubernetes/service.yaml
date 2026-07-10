@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: opensynccrdt
+  namespace: opensynccrdt
+  labels:
+    app.kubernetes.io/name: opensynccrdt
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: opensynccrdt
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+      protocol: TCP

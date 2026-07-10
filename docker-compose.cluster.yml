@@ -1,0 +1,74 @@
+# OpenSyncCRDT — multi-node cluster with Redis + Postgres.
+#
+# Two server nodes share one Postgres database and use Redis pub/sub to fan
+# operations across nodes. An nginx load balancer in front provides sticky
+# sessions (WebSocket affinity) and is the single entry point on :8080.
+#
+#   docker compose -f docker-compose.cluster.yml up
+#
+# This demonstrates success criterion #9: a client connected to node1 receives
+# operations produced by a client connected to node2, routed over Redis.
+# SQLite cannot be used in cluster mode (single-writer), so both nodes use the
+# shared Postgres database.
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: opensync
+      POSTGRES_PASSWORD: opensync
+      POSTGRES_DB: opensynccrdt
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U opensync -d opensynccrdt"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  node1: &node
+    build:
+      context: .
+      dockerfile: deploy/docker/Dockerfile
+    image: opensynccrdt/server:latest
+    environment:
+      STORAGE_BACKEND: postgres
+      STORAGE_URL: postgres://opensync:opensync@postgres:5432/opensynccrdt
+      STORAGE_POSTGRES_SSL_MODE: disable
+      CLUSTER_MODE: "true"
+      CLUSTER_BACKEND: redis
+      CLUSTER_REDIS_URL: redis://redis:6379
+      LOG_FORMAT: json
+      LOG_LEVEL: info
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  node2:
+    <<: *node
+
+  loadbalancer:
+    image: nginx:1.27-alpine
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./deploy/docker/nginx-cluster.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - node1
+      - node2
+    restart: unless-stopped
+
+volumes:
+  postgres-data:

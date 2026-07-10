@@ -11,3 +11,10 @@ opensynccrdt
 config.yaml
 config.yml
 docker-compose.yml
+docker-compose.postgres.yml
+docker-compose.cluster.yml
+deploy
+docs
+tests
+examples
+*.md

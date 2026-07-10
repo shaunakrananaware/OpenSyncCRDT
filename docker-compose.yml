@@ -1,0 +1,28 @@
+# OpenSyncCRDT — single node, SQLite storage.
+#
+# The simplest deployment: one server process, one SQLite database file
+# persisted in a named volume. No external services required.
+#
+#   docker compose up
+#
+# The sync endpoint is ws://localhost:8080/sync and the management API is
+# http://localhost:8080/api/v1/.
+services:
+  opensynccrdt:
+    build:
+      context: .
+      dockerfile: deploy/docker/Dockerfile
+    image: opensynccrdt/server:latest
+    ports:
+      - "8080:8080"
+    environment:
+      STORAGE_BACKEND: sqlite
+      DATA_DIR: /data
+      LOG_FORMAT: json
+      LOG_LEVEL: info
+    volumes:
+      - opensynccrdt-data:/data
+    restart: unless-stopped
+
+volumes:
+  opensynccrdt-data:

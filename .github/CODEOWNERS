@@ -1,0 +1,25 @@
+# Code owners for OpenSyncCRDT.
+#
+# These owners are requested for review automatically when matching files
+# change. Replace the placeholder handle(s) below with the real maintainer
+# GitHub usernames or teams (e.g. @opensynccrdt/maintainers).
+
+# Default owner for everything in the repo.
+*                       @shaunakrananaware
+
+# Storage backends — changes here must keep all three backends behaviourally
+# identical and pass the shared conformance suite.
+/internal/storage/      @shaunakrananaware
+
+# CRDT core and conflict resolution.
+/internal/crdt/         @shaunakrananaware
+/internal/sync/         @shaunakrananaware
+
+# Public embedding API — changes here affect downstream importers.
+/pkg/                   @shaunakrananaware
+
+# Deployment artifacts and CI/CD.
+/deploy/                @shaunakrananaware
+/.github/               @shaunakrananaware
+/Dockerfile             @shaunakrananaware
+/Makefile               @shaunakrananaware
