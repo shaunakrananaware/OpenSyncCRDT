@@ -23,7 +23,12 @@ VERSION     ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo 
 LDFLAGS     := -s -w -X main.version=$(VERSION)
 
 # Static link flags for the linux release binaries (see header note).
-STATIC_LD   := $(LDFLAGS) -linkmode external -extldflags "-static"
+# -lunwind resolves the Itanium unwind symbols (_Unwind_Backtrace, _Unwind_GetIP)
+# that automerge-go's prebuilt Rust archive references for its std backtraces; a
+# fully static link pulls in no unwinder otherwise and ld.lld fails on those
+# undefined symbols. It follows -lautomerge_core in the link line (Go appends
+# extldflags last), which is the order static resolution requires.
+STATIC_LD   := $(LDFLAGS) -linkmode external -extldflags "-static -lunwind"
 
 # Docker image variants shipped by the project.
 IMAGE       := opensynccrdt/server
