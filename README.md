@@ -1,133 +1,130 @@
 # OpenSyncCRDT
-problem:
-Step 1 — Alex builds the basic app. Easy.
-A text editor that saves to a local SQLite database.
-Notes are fast, work offline, feel instant.
-Takes Alex maybe 2-3 weeks.
-Everything is great so far.
 
-Step 2 — Alex's first user wants it on two devices. Problems begin.
-User opens the app on their laptop.
-Writes a note.
-Opens the app on their phone.
-The note is not there.
+OpenSyncCRDT is an open-source, production-grade, local-first sync engine that
+compiles to a single Go binary and gives any app reliable multi-device,
+offline-capable sync without you having to learn distributed systems.
 
-Alex now needs to build sync.
+## The problem it solves
 
-Step 3 — Alex tries to build sync. Reality hits.
-Alex googles "how to sync local SQLite database." Finds that the standard solution everyone recommends is Yjs — the most popular CRDT library. Alex reads the docs.
-This is what Alex finds:
-To use Yjs for sync you need:
+Adding sync to a local-first app (notes, todos, collaborative editors) normally
+means stitching together a CRDT library, a WebSocket server, a persistence
+layer, conflict resolution, and a multi-service deployment — months of
+distributed-systems work before you ship a single feature. OpenSyncCRDT
+collapses all of that into one binary: it stores and orders
+[Automerge](https://automerge.org/) change sets, routes them between devices in
+real time, resolves conflicts with no data loss, and survives restarts. Auth,
+access control, and business logic stay yours; OpenSyncCRDT handles only the
+sync infrastructure.
 
-  1. Yjs on the client
-     → Restructure your entire data model around Yjs types
-     → Your notes can't be plain text strings anymore
-     → They have to be Y.Text objects
-     → This means rewriting the editor from scratch
+## Quickstart
 
-  2. y-websocket — a WebSocket server
-     → A separate Node.js server process
-     → Needs to stay running permanently
-     → Needs to handle thousands of connections
+```bash
+docker run -p 8080:8080 opensynccrdt/server
+```
 
-  3. y-leveldb or y-redis — server side persistence
-     → y-websocket alone doesn't persist data
-     → If the server restarts, everything is gone
-     → So Alex needs ALSO to set up LevelDB or Redis
-     → Now there are THREE running services
+That's a working sync server: a WebSocket sync endpoint at `ws://localhost:8080/sync`,
+a REST management API under `http://localhost:8080/api/v1/`, and Kubernetes
+`/health` / `/ready` probes. It uses the embedded SQLite backend by default —
+add `-v ./data:/data` to persist across restarts.
 
-  4. y-indexeddb — client side persistence
-     → So the browser remembers state between sessions
-     → Another library, another integration
+Verify it's up:
 
-  5. Awareness protocol — for cursors and presence
-     → Separate system on top of everything above
+```bash
+curl localhost:8080/health   # {"status":"ok"}
+curl localhost:8080/ready    # {"status":"ready"}
+```
 
-Alex now has to run and maintain:
-  → A Node.js WebSocket server
-  → A Redis instance
-  → A LevelDB store
-  → Wire all of them together correctly
-  → Handle all the failure cases
+## Minimal integration example
 
-This is BEFORE writing a single feature of the actual app.
-Alex is a good developer. They push through. Spend 3-4 weeks getting it working in development. Then they try to deploy it.
+Sync is a WebSocket connection to `/sync` carrying Automerge change sets as
+base64 inside JSON envelopes. A browser client using
+[`@automerge/automerge`](https://www.npmjs.com/package/@automerge/automerge):
 
-Step 4 — Alex tries to deploy. More problems.
-Alex needs to run all of this on a server:
+```js
+import * as Automerge from "@automerge/automerge";
 
-  Process 1: The app server (Node.js or Go or whatever)
-  Process 2: The Yjs WebSocket server (Node.js)
-  Process 3: Redis
-  Process 4: LevelDB (embedded in process 2, but still)
+const sessionId = crypto.randomUUID();
+const docId = "my-doc";
+let doc = Automerge.init();
 
-On a $5 VPS:
-  Redis alone uses 50-100MB RAM
-  Node.js process uses 100-200MB RAM
-  The $5 server has 512MB total RAM
-  
-  Alex either pays more for a bigger server
-  or spends days optimizing and tweaking configs
+const ws = new WebSocket("ws://localhost:8080/sync", "opensync-json");
 
-For deployment Alex now needs to understand:
-  → Docker Compose to run multiple services
-  → Networking between containers
-  → Volume mounting for persistence
-  → Nginx as a reverse proxy for WebSockets
-  → SSL certificates for secure WebSocket (wss://)
-  → Process monitoring so services restart on crash
-  → Health checks
-Alex spends another 2-3 weeks on deployment. The app still has zero users.
+ws.onopen = () => {
+  // Join the document and ask for everything we've missed (from seq 0).
+  ws.send(JSON.stringify({ type: "subscribe", doc_id: docId, session_id: sessionId, last_seq: 0 }));
+};
 
-Step 5 — First real user, first real bug.
-A user reports: "I edited a note on my phone while offline. When I got home and connected to wifi, my edits disappeared."
-Alex now has to understand:
+ws.onmessage = (evt) => {
+  const msg = JSON.parse(evt.data);
+  if (msg.type === "sync") {
+    doc = Automerge.loadIncremental(doc, base64ToBytes(msg.payload));
+  } else if (msg.type === "replay") {
+    for (const op of msg.ops) doc = Automerge.loadIncremental(doc, base64ToBytes(op.payload));
+  }
+};
 
-  Why did this happen?
-    The phone had pending operations buffered locally.
-    When it reconnected, the WebSocket server received them.
-    But the server didn't know how to merge them with
-    edits made by the laptop in the meantime.
-    Last write won. Phone's edits were overwritten.
+// Make a local change and push it to the server as a binary change set.
+function edit(mutator) {
+  const before = doc;
+  doc = Automerge.change(doc, mutator);
+  const change = Automerge.getLastLocalChange(doc); // Uint8Array
+  ws.send(JSON.stringify({
+    type: "sync", doc_id: docId, session_id: sessionId, payload: bytesToBase64(change),
+  }));
+}
+```
 
-  How to fix it?
-    Alex needs to implement proper CRDT operation ordering.
-    Needs to understand Lamport timestamps.
-    Needs to implement an operation log on the server.
-    Needs to handle the "catch up" case where a device
-    reconnects after being offline.
+A complete, runnable version lives in [`examples/notes-app`](examples/notes-app).
+The full envelope reference is in
+[docs/api-reference/websocket.md](docs/api-reference/websocket.md).
 
-  This is a distributed systems problem.
-  Alex is a product developer, not a distributed systems engineer.
-  This takes weeks to research and implement correctly.
+## Documentation
 
-Step 6 — Alex wants to add a second user (collaboration).
-Now a document can have two editors simultaneously.
-Both editing the same paragraph at the same time.
+- [Getting started](docs/getting-started.md)
+- [Configuration reference](docs/configuration.md)
+- [Wire protocol](docs/protocol.md)
+- [Authentication](docs/auth.md)
+- [Webhooks](docs/webhooks.md)
+- API reference: [REST](docs/api-reference/rest.md) · [WebSocket](docs/api-reference/websocket.md)
+- Contributing: [development setup](docs/contributing/development-setup.md) · [architecture](docs/contributing/architecture.md)
 
-New problems:
-  → Who has permission to access which document?
-  → How do you handle two people editing the same word?
-  → What does User B see while User A is typing?
-  → How do you show User A's cursor to User B?
-  → What happens if User A deletes a paragraph
-    while User B is editing text inside that paragraph?
+## Deployment options
 
-Each of these is a research problem, not just a coding problem.
+OpenSyncCRDT is a single static binary, so it runs almost anywhere:
 
-Where Alex Is Now
-Alex wanted to build a notes app.
+- **Docker** — three image variants (`latest`, `alpine`, `distroless`). See [docs/deployment/docker.md](docs/deployment/docker.md).
+- **Kubernetes** — manifests in [`deploy/kubernetes/`](deploy/kubernetes) and a Helm chart in [`deploy/helm/`](deploy/helm). See [docs/deployment/kubernetes.md](docs/deployment/kubernetes.md).
+- **VPS / bare metal** — systemd unit and `install.sh` in [`deploy/`](deploy). See [docs/deployment/vps.md](docs/deployment/vps.md).
+- **PaaS one-click** — [Fly.io](docs/deployment/fly.md), [Railway](docs/deployment/railway.md), Render, and Coolify configs under [`deploy/`](deploy).
+- **Embedded** — import `github.com/opensynccrdt/opensynccrdt/pkg/engine` and mount the handler on your own Go mux. See [`examples/embedded-server`](examples/embedded-server).
 
-Time spent on the actual app:    3 weeks
-Time spent on sync infrastructure: 4 months (and counting)
+Scale out with `CLUSTER_MODE=true` and Redis; multiple nodes share one
+Postgres/MySQL database and fan out operations over Redis pub/sub. Cluster
+deployments require sticky-session load balancing — see
+[docs/deployment/kubernetes.md](docs/deployment/kubernetes.md).
 
-What Alex has built so far:
-  ✓ A text editor
-  ✓ Local saving
-  ✗ Reliable sync (still buggy)
-  ✗ Offline support (edits still get lost sometimes)
-  ✗ Collaboration (not started)
-  ✗ Any other features
+**Supported platforms:** `linux/amd64`, `linux/arm64`, `darwin/amd64`,
+`darwin/arm64`. Windows is not supported — the mandated Automerge CRDT core
+ships prebuilt native archives only for those four platforms.
 
-Alex is exhausted and hasn't shipped yet.
-This is the pain point. The infrastructure for syncing is so complex that it consumes the entire project. The actual app — the thing users care about — never gets built.
+## Configuration
+
+Everything is configured by environment variable or an optional YAML file — no
+code changes. See the full [configuration reference](docs/configuration.md) and
+the annotated [`config.example.yaml`](config.example.yaml). Switching storage
+from SQLite to Postgres, for example, is two environment variables:
+
+```bash
+-e STORAGE_BACKEND=postgres -e STORAGE_URL=postgres://user:pass@host:5432/dbname
+```
+
+## Contributing
+
+Contributions are welcome. Start with [CONTRIBUTING.md](CONTRIBUTING.md) for
+environment setup, how to run the tests, and the PR process. All participants
+are expected to follow the [Code of Conduct](CODE_OF_CONDUCT.md). To report a
+security issue, see [SECURITY.md](SECURITY.md).
+
+## License
+
+OpenSyncCRDT is licensed under the [Apache License 2.0](LICENSE).
