@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/opensynccrdt/opensynccrdt/internal/cluster"
 	"github.com/opensynccrdt/opensynccrdt/internal/config"
 	"github.com/opensynccrdt/opensynccrdt/internal/metrics"
 	"github.com/opensynccrdt/opensynccrdt/internal/storage"
@@ -28,6 +29,7 @@ type API struct {
 	logger    *slog.Logger
 	startedAt time.Time
 	nodeID    string
+	cluster   *cluster.Node
 }
 
 // Options configures an API.
@@ -38,6 +40,9 @@ type Options struct {
 	Config  config.Config
 	Logger  *slog.Logger
 	NodeID  string
+	// Cluster, when non-nil, backs /api/v1/nodes with the live Redis node
+	// registry. Nil in single-node mode.
+	Cluster *cluster.Node
 }
 
 // New builds an API.
@@ -55,6 +60,7 @@ func New(opts Options) *API {
 		logger:    logger,
 		startedAt: time.Now(),
 		nodeID:    opts.NodeID,
+		cluster:   opts.Cluster,
 	}
 }
 

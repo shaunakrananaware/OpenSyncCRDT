@@ -435,6 +435,14 @@ func (c Config) Validate() error {
 	if c.Cluster.Mode && c.Storage.Backend == StorageSQLite {
 		return fmt.Errorf("cluster mode requires postgres or mysql storage; sqlite cannot be used in a cluster")
 	}
+	if c.Cluster.Mode {
+		if strings.ToLower(strings.TrimSpace(c.Cluster.Backend)) != "redis" {
+			return fmt.Errorf("cluster backend %q unsupported; only redis is supported", c.Cluster.Backend)
+		}
+		if strings.TrimSpace(c.Cluster.RedisURL) == "" {
+			return fmt.Errorf("cluster mode requires cluster redis_url (CLUSTER_REDIS_URL)")
+		}
+	}
 
 	if c.Limits.MaxConnections < 1 {
 		return fmt.Errorf("max_connections must be >= 1, got %d", c.Limits.MaxConnections)

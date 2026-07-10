@@ -19,10 +19,12 @@ package engine
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net/http"
 
 	"github.com/opensynccrdt/opensynccrdt/internal/api"
 	"github.com/opensynccrdt/opensynccrdt/internal/auth"
+	"github.com/opensynccrdt/opensynccrdt/internal/cluster"
 	"github.com/opensynccrdt/opensynccrdt/internal/config"
 	"github.com/opensynccrdt/opensynccrdt/internal/crdt"
 	"github.com/opensynccrdt/opensynccrdt/internal/metrics"
@@ -73,11 +75,12 @@ func HeaderAuth(headerName string) Configurator {
 
 // Engine is a running, embeddable sync engine.
 type Engine struct {
-	cfg    config.Config
-	store  storage.Store
-	api    *api.API
-	srv    *server.Server
-	cancel context.CancelFunc
+	cfg     config.Config
+	store   storage.Store
+	api     *api.API
+	srv     *server.Server
+	cluster *cluster.Node
+	cancel  context.CancelFunc
 }
 
 // New assembles an embedded engine from cfg.
@@ -134,7 +137,38 @@ func newFromConfig(cfg config.Config, nodeID string) (*Engine, error) {
 		CORS:    cfg.CORS,
 		BaseCtx: ctx,
 	})
-	syncEng := syncengine.NewEngine(store, srv.Hub(), syncengine.Options{
+
+	if nodeID == "" {
+		nodeID = generateNodeID()
+	}
+
+	// In cluster mode the engine broadcasts through the cluster node, which
+	// delivers locally (via the hub) and fans the op out to other nodes over
+	// Redis. In single-node mode the hub is the broadcaster directly.
+	var (
+		broadcaster syncengine.Broadcaster = srv.Hub()
+		clusterNode *cluster.Node
+	)
+	if cfg.Cluster.Mode {
+		node, err := cluster.New(cluster.Options{
+			Ctx:      ctx,
+			RedisURL: cfg.Cluster.RedisURL,
+			NodeID:   nodeID,
+			Addr:     cfg.Addr(),
+			Local:    srv.Hub(),
+			Logger:   slog.Default(),
+		})
+		if err != nil {
+			cancel()
+			_ = store.Close()
+			return nil, fmt.Errorf("join cluster: %w", err)
+		}
+		broadcaster = node
+		srv.SetSubscriptionObserver(node)
+		clusterNode = node
+	}
+
+	syncEng := syncengine.NewEngine(store, broadcaster, syncengine.Options{
 		SnapshotInterval: cfg.Storage.SnapshotInterval,
 		Resolver:         resolver,
 		ResolverTimeout:  cfg.Conflict.Timeout,
@@ -142,23 +176,22 @@ func newFromConfig(cfg config.Config, nodeID string) (*Engine, error) {
 	})
 	srv.SetEngine(syncEng)
 
-	if nodeID == "" {
-		nodeID = generateNodeID()
-	}
 	restAPI := api.New(api.Options{
 		Engine:  syncEng,
 		Metrics: reg,
 		Emitter: dispatcher,
 		Config:  cfg,
 		NodeID:  nodeID,
+		Cluster: clusterNode,
 	})
 
 	return &Engine{
-		cfg:    cfg,
-		store:  store,
-		api:    restAPI,
-		srv:    srv,
-		cancel: cancel,
+		cfg:     cfg,
+		store:   store,
+		api:     restAPI,
+		srv:     srv,
+		cluster: clusterNode,
+		cancel:  cancel,
 	}, nil
 }
 
@@ -177,8 +210,14 @@ func (e *Engine) WebSocketHandler() http.HandlerFunc {
 // Config returns the resolved configuration.
 func (e *Engine) Config() config.Config { return e.cfg }
 
-// Close cancels live connections and releases storage.
+// Close cancels live connections, leaves the cluster, and releases storage.
 func (e *Engine) Close() error {
 	e.cancel()
+	if e.cluster != nil {
+		if err := e.cluster.Close(); err != nil {
+			e.store.Close()
+			return fmt.Errorf("leave cluster: %w", err)
+		}
+	}
 	return e.store.Close()
 }

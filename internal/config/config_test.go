@@ -179,6 +179,18 @@ func TestValidationErrors(t *testing.T) {
 		{"zero snapshot interval", func(c *Config) { c.Storage.SnapshotInterval = 0 }},
 		{"tls without files", func(c *Config) { c.TLS.Enabled = true }},
 		{"cluster with sqlite", func(c *Config) { c.Cluster.Mode = true }},
+		{"cluster without redis url", func(c *Config) {
+			c.Cluster.Mode = true
+			c.Storage.Backend = StoragePostgres
+			c.Storage.URL = "postgres://u:p@h/db"
+		}},
+		{"cluster with unsupported backend", func(c *Config) {
+			c.Cluster.Mode = true
+			c.Cluster.Backend = "nats"
+			c.Storage.Backend = StoragePostgres
+			c.Storage.URL = "postgres://u:p@h/db"
+			c.Cluster.RedisURL = "redis://localhost:6379"
+		}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

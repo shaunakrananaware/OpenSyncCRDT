@@ -84,6 +84,12 @@ func New(opts Options) *Server {
 // Hub returns the broadcaster to wire into the engine.
 func (s *Server) Hub() syncengine.Broadcaster { return s.hub }
 
+// SetSubscriptionObserver installs an observer notified when a document gains
+// its first local subscriber or loses its last. In cluster mode the cluster
+// node is the observer, so it subscribes to a document's Redis channel only
+// while the node serves that document. Must be called during wiring.
+func (s *Server) SetSubscriptionObserver(o SubscriptionObserver) { s.hub.setObserver(o) }
+
 // SetEngine injects the sync engine. It must be called before the first
 // connection is served (the engine and server have a mutual dependency: the
 // engine needs the hub, the connections need the engine).

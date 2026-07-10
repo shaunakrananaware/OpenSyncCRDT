@@ -14,9 +14,32 @@ func (a *API) handleMetrics(w http.ResponseWriter, _ *http.Request) {
 	}
 }
 
-// GET /api/v1/nodes — cluster node listing. In single-node mode this reports
+// GET /api/v1/nodes — cluster node listing. In cluster mode this lists every
+// currently-alive node from the Redis registry; in single-node mode it reports
 // just this node.
-func (a *API) handleNodes(w http.ResponseWriter, _ *http.Request) {
+func (a *API) handleNodes(w http.ResponseWriter, r *http.Request) {
+	if a.cluster != nil {
+		infos, err := a.cluster.Nodes(r.Context())
+		if err != nil {
+			a.logger.Error("list cluster nodes", "error", err)
+			writeError(w, http.StatusServiceUnavailable, "cluster registry unavailable")
+			return
+		}
+		nodes := make([]map[string]any, 0, len(infos))
+		for _, n := range infos {
+			nodes = append(nodes, map[string]any{
+				"id":         n.ID,
+				"addr":       n.Addr,
+				"started_at": n.StartedAt.UTC().Format(time.RFC3339),
+			})
+		}
+		writeJSON(w, http.StatusOK, map[string]any{
+			"cluster_mode": true,
+			"nodes":        nodes,
+		})
+		return
+	}
+
 	node := map[string]any{
 		"id":         a.nodeID,
 		"addr":       a.cfg.Addr(),
