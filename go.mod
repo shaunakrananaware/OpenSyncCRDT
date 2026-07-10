@@ -1,4 +1,4 @@
-module github.com/opensynccrdt/opensynccrdt
+module github.com/shaunakrananaware/OpenSyncCRDT
 
 go 1.23
 

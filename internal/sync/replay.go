@@ -3,7 +3,7 @@ package sync
 import (
 	"fmt"
 
-	"github.com/opensynccrdt/opensynccrdt/pkg/protocol"
+	"github.com/shaunakrananaware/OpenSyncCRDT/pkg/protocol"
 )
 
 // Replay streams every operation after afterSeq to a catching-up subscriber, in

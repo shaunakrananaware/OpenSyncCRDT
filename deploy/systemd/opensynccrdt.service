@@ -1,6 +1,6 @@
 [Unit]
 Description=OpenSyncCRDT local-first sync engine
-Documentation=https://github.com/opensynccrdt/opensynccrdt
+Documentation=https://github.com/shaunakrananaware/OpenSyncCRDT
 After=network-online.target
 Wants=network-online.target
 

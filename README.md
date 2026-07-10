@@ -96,7 +96,7 @@ OpenSyncCRDT is a single static binary, so it runs almost anywhere:
 - **Kubernetes** — manifests in [`deploy/kubernetes/`](deploy/kubernetes) and a Helm chart in [`deploy/helm/`](deploy/helm). See [docs/deployment/kubernetes.md](docs/deployment/kubernetes.md).
 - **VPS / bare metal** — systemd unit and `install.sh` in [`deploy/`](deploy). See [docs/deployment/vps.md](docs/deployment/vps.md).
 - **PaaS one-click** — [Fly.io](docs/deployment/fly.md), [Railway](docs/deployment/railway.md), Render, and Coolify configs under [`deploy/`](deploy).
-- **Embedded** — import `github.com/opensynccrdt/opensynccrdt/pkg/engine` and mount the handler on your own Go mux. See [`examples/embedded-server`](examples/embedded-server).
+- **Embedded** — import `github.com/shaunakrananaware/OpenSyncCRDT/pkg/engine` and mount the handler on your own Go mux. See [`examples/embedded-server`](examples/embedded-server).
 
 Scale out with `CLUSTER_MODE=true` and Redis; multiple nodes share one
 Postgres/MySQL database and fan out operations over Redis pub/sub. Cluster

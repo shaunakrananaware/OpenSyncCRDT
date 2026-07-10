@@ -11,7 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/opensynccrdt/opensynccrdt/internal/config"
+	"github.com/shaunakrananaware/OpenSyncCRDT/internal/config"
 )
 
 // postgresStore is the PostgreSQL backend, built on a native pgx connection

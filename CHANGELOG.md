@@ -50,4 +50,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   reserved but not yet implemented; clients that request it transparently fall
   back to JSON.
 
-[Unreleased]: https://github.com/opensynccrdt/opensynccrdt/commits/main
+[Unreleased]: https://github.com/shaunakrananaware/OpenSyncCRDT/commits/main

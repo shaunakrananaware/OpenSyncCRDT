@@ -11,11 +11,11 @@ import (
 
 	"github.com/coder/websocket"
 
-	"github.com/opensynccrdt/opensynccrdt/internal/auth"
-	"github.com/opensynccrdt/opensynccrdt/internal/config"
-	"github.com/opensynccrdt/opensynccrdt/internal/metrics"
-	syncengine "github.com/opensynccrdt/opensynccrdt/internal/sync"
-	"github.com/opensynccrdt/opensynccrdt/pkg/protocol"
+	"github.com/shaunakrananaware/OpenSyncCRDT/internal/auth"
+	"github.com/shaunakrananaware/OpenSyncCRDT/internal/config"
+	"github.com/shaunakrananaware/OpenSyncCRDT/internal/metrics"
+	syncengine "github.com/shaunakrananaware/OpenSyncCRDT/internal/sync"
+	"github.com/shaunakrananaware/OpenSyncCRDT/pkg/protocol"
 )
 
 // serverDeps groups the dependencies each connection needs.

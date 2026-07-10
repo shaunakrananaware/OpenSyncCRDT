@@ -11,7 +11,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/opensynccrdt/opensynccrdt/internal/config"
+	"github.com/shaunakrananaware/OpenSyncCRDT/internal/config"
 )
 
 // ErrUnauthorized indicates a connection must be rejected. The server maps it

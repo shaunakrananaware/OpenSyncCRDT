@@ -14,9 +14,9 @@ import (
 	stdsync "sync"
 	"time"
 
-	"github.com/opensynccrdt/opensynccrdt/internal/crdt"
-	"github.com/opensynccrdt/opensynccrdt/internal/storage"
-	"github.com/opensynccrdt/opensynccrdt/pkg/protocol"
+	"github.com/shaunakrananaware/OpenSyncCRDT/internal/crdt"
+	"github.com/shaunakrananaware/OpenSyncCRDT/internal/storage"
+	"github.com/shaunakrananaware/OpenSyncCRDT/pkg/protocol"
 )
 
 // Emitter dispatches an outbound webhook event with the given event-specific

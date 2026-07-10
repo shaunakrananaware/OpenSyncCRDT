@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/opensynccrdt/opensynccrdt/internal/config"
+	"github.com/shaunakrananaware/OpenSyncCRDT/internal/config"
 )
 
 // Open constructs the storage backend selected by cfg.Backend. Backends are

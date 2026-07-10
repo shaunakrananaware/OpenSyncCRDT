@@ -14,8 +14,8 @@ import (
 	"github.com/automerge/automerge-go"
 	"github.com/coder/websocket"
 
-	"github.com/opensynccrdt/opensynccrdt/pkg/engine"
-	"github.com/opensynccrdt/opensynccrdt/pkg/protocol"
+	"github.com/shaunakrananaware/OpenSyncCRDT/pkg/engine"
+	"github.com/shaunakrananaware/OpenSyncCRDT/pkg/protocol"
 )
 
 func newServer(t *testing.T) (*httptest.Server, *engine.Engine) {

@@ -4,7 +4,7 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/opensynccrdt/opensynccrdt/internal/config"
+	"github.com/shaunakrananaware/OpenSyncCRDT/internal/config"
 )
 
 // noneAuth accepts every connection. Default mode: local development, trusted

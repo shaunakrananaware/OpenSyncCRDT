@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/opensynccrdt/opensynccrdt/internal/storage"
+	"github.com/shaunakrananaware/OpenSyncCRDT/internal/storage"
 )
 
 // docView is the JSON representation of document metadata.

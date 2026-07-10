@@ -6,9 +6,9 @@ type: application
 version: 0.1.0
 # Application version this chart deploys by default.
 appVersion: "0.1.0"
-home: https://github.com/opensynccrdt/opensynccrdt
+home: https://github.com/shaunakrananaware/OpenSyncCRDT
 sources:
-  - https://github.com/opensynccrdt/opensynccrdt
+  - https://github.com/shaunakrananaware/OpenSyncCRDT
 keywords:
   - crdt
   - sync

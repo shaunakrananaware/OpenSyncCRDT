@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/opensynccrdt/opensynccrdt/internal/config"
+	"github.com/shaunakrananaware/OpenSyncCRDT/internal/config"
 )
 
 // newSQLiteTestStore opens a fresh SQLite store in a per-test temp directory.

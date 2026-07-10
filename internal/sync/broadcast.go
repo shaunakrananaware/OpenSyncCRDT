@@ -1,6 +1,6 @@
 package sync
 
-import "github.com/opensynccrdt/opensynccrdt/pkg/protocol"
+import "github.com/shaunakrananaware/OpenSyncCRDT/pkg/protocol"
 
 // Broadcaster fans a committed change set out to the sessions subscribed to a
 // document, skipping the session that produced it. It is implemented by the

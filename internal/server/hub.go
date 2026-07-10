@@ -4,7 +4,7 @@ import (
 	"log/slog"
 	stdsync "sync"
 
-	"github.com/opensynccrdt/opensynccrdt/pkg/protocol"
+	"github.com/shaunakrananaware/OpenSyncCRDT/pkg/protocol"
 )
 
 // hub tracks live connections and routes broadcasts to the sessions subscribed

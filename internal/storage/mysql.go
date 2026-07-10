@@ -10,7 +10,7 @@ import (
 
 	"github.com/go-sql-driver/mysql"
 
-	"github.com/opensynccrdt/opensynccrdt/internal/config"
+	"github.com/shaunakrananaware/OpenSyncCRDT/internal/config"
 )
 
 // mysqlStore is the MySQL backend, built on the standard database/sql interface

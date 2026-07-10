@@ -36,7 +36,7 @@ the YAML config file — never a code change. New knobs go through
 3. **Clone and build:**
 
    ```bash
-   git clone https://github.com/opensynccrdt/opensynccrdt.git
+   git clone https://github.com/shaunakrananaware/OpenSyncCRDT.git
    cd opensynccrdt
    make build          # produces ./opensynccrdt (CGO_ENABLED=1)
    ```
@@ -123,5 +123,5 @@ edge cases), and improvements to the example apps are all excellent starting
 points and are always appreciated. If a `good first issue` is unclear, ask in
 the issue thread — we're happy to help you get started.
 
-[gfi]: https://github.com/opensynccrdt/opensynccrdt/labels/good%20first%20issue
-[hw]: https://github.com/opensynccrdt/opensynccrdt/labels/help%20wanted
+[gfi]: https://github.com/shaunakrananaware/OpenSyncCRDT/labels/good%20first%20issue
+[hw]: https://github.com/shaunakrananaware/OpenSyncCRDT/labels/help%20wanted

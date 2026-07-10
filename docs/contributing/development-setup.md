@@ -21,7 +21,7 @@ CGO is mandatory:
 ## Clone and build
 
 ```bash
-git clone https://github.com/opensynccrdt/opensynccrdt.git
+git clone https://github.com/shaunakrananaware/OpenSyncCRDT.git
 cd opensynccrdt
 make build        # -> ./opensynccrdt (CGO_ENABLED=1)
 ```

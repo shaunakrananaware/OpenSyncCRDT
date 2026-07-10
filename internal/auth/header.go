@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/opensynccrdt/opensynccrdt/internal/config"
+	"github.com/shaunakrananaware/OpenSyncCRDT/internal/config"
 )
 
 // headerAuth trusts an identity header injected by a trusted upstream (an API

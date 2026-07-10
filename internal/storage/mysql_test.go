@@ -5,7 +5,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/opensynccrdt/opensynccrdt/internal/config"
+	"github.com/shaunakrananaware/OpenSyncCRDT/internal/config"
 )
 
 // TestMySQLConformance runs the shared storage suite against a real MySQL

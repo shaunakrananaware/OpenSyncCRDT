@@ -22,16 +22,16 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/opensynccrdt/opensynccrdt/internal/api"
-	"github.com/opensynccrdt/opensynccrdt/internal/auth"
-	"github.com/opensynccrdt/opensynccrdt/internal/cluster"
-	"github.com/opensynccrdt/opensynccrdt/internal/config"
-	"github.com/opensynccrdt/opensynccrdt/internal/crdt"
-	"github.com/opensynccrdt/opensynccrdt/internal/metrics"
-	"github.com/opensynccrdt/opensynccrdt/internal/server"
-	"github.com/opensynccrdt/opensynccrdt/internal/storage"
-	syncengine "github.com/opensynccrdt/opensynccrdt/internal/sync"
-	"github.com/opensynccrdt/opensynccrdt/internal/webhook"
+	"github.com/shaunakrananaware/OpenSyncCRDT/internal/api"
+	"github.com/shaunakrananaware/OpenSyncCRDT/internal/auth"
+	"github.com/shaunakrananaware/OpenSyncCRDT/internal/cluster"
+	"github.com/shaunakrananaware/OpenSyncCRDT/internal/config"
+	"github.com/shaunakrananaware/OpenSyncCRDT/internal/crdt"
+	"github.com/shaunakrananaware/OpenSyncCRDT/internal/metrics"
+	"github.com/shaunakrananaware/OpenSyncCRDT/internal/server"
+	"github.com/shaunakrananaware/OpenSyncCRDT/internal/storage"
+	syncengine "github.com/shaunakrananaware/OpenSyncCRDT/internal/sync"
+	"github.com/shaunakrananaware/OpenSyncCRDT/internal/webhook"
 )
 
 // Configurator mutates a resolved config.Config. The Storage and Auth helpers

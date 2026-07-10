@@ -6,12 +6,12 @@
 # /usr/local/bin/opensynccrdt, installs and enables the systemd service, and
 # prints the service status.
 #
-#   curl -fsSL https://raw.githubusercontent.com/opensynccrdt/opensynccrdt/main/deploy/scripts/install.sh | sudo bash
+#   curl -fsSL https://raw.githubusercontent.com/shaunakrananaware/OpenSyncCRDT/main/deploy/scripts/install.sh | sudo bash
 #
 # Override the version with OPENSYNCCRDT_VERSION=v1.2.3 (defaults to latest).
 set -euo pipefail
 
-REPO="opensynccrdt/opensynccrdt"
+REPO="shaunakrananaware/OpenSyncCRDT"
 BINARY="opensynccrdt"
 INSTALL_DIR="/usr/local/bin"
 CONFIG_DIR="/etc/opensynccrdt"

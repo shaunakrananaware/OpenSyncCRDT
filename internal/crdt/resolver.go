@@ -9,7 +9,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/opensynccrdt/opensynccrdt/internal/webhook"
+	"github.com/shaunakrananaware/OpenSyncCRDT/internal/webhook"
 )
 
 // Resolver calls a developer-configured HTTP endpoint to resolve a merge

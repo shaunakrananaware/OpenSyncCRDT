@@ -18,8 +18,8 @@ import (
 	"log/slog"
 	"time"
 
-	syncengine "github.com/opensynccrdt/opensynccrdt/internal/sync"
-	"github.com/opensynccrdt/opensynccrdt/pkg/protocol"
+	syncengine "github.com/shaunakrananaware/OpenSyncCRDT/internal/sync"
+	"github.com/shaunakrananaware/OpenSyncCRDT/pkg/protocol"
 )
 
 // Node-registry heartbeat parameters are fixed by the specification: each node

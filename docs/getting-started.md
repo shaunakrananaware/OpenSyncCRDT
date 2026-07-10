@@ -12,7 +12,7 @@ docker run -p 8080:8080 opensynccrdt/server
 ```
 
 Or download a binary for your platform from the
-[releases page](https://github.com/opensynccrdt/opensynccrdt/releases) and run
+[releases page](https://github.com/shaunakrananaware/OpenSyncCRDT/releases) and run
 it:
 
 ```bash

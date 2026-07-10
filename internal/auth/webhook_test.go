@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/opensynccrdt/opensynccrdt/internal/config"
+	"github.com/shaunakrananaware/OpenSyncCRDT/internal/config"
 )
 
 func mustRequest(t *testing.T, token, docID string) *http.Request {

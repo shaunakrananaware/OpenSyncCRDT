@@ -10,7 +10,7 @@ The [`install.sh`](../../deploy/scripts/install.sh) script downloads the correct
 binary for the machine, installs it, and sets up a systemd service:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/opensynccrdt/opensynccrdt/main/deploy/scripts/install.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/shaunakrananaware/OpenSyncCRDT/main/deploy/scripts/install.sh | sudo bash
 ```
 
 Pin a version with `OPENSYNCCRDT_VERSION`:

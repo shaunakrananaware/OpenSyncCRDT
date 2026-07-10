@@ -16,8 +16,8 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/opensynccrdt/opensynccrdt/internal/config"
-	"github.com/opensynccrdt/opensynccrdt/pkg/engine"
+	"github.com/shaunakrananaware/OpenSyncCRDT/internal/config"
+	"github.com/shaunakrananaware/OpenSyncCRDT/pkg/engine"
 )
 
 // version is set at build time via -ldflags "-X main.version=...".

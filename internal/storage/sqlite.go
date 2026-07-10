@@ -12,7 +12,7 @@ import (
 
 	"github.com/mattn/go-sqlite3"
 
-	"github.com/opensynccrdt/opensynccrdt/internal/config"
+	"github.com/shaunakrananaware/OpenSyncCRDT/internal/config"
 )
 
 // sqliteStore is the default backend: an embedded single-file SQLite database

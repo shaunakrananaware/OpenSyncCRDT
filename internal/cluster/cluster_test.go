@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/opensynccrdt/opensynccrdt/pkg/protocol"
+	"github.com/shaunakrananaware/OpenSyncCRDT/pkg/protocol"
 )
 
 // captureBroadcaster is a stand-in for the server hub: it records every

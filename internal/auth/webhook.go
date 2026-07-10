@@ -10,8 +10,8 @@ import (
 	stdsync "sync"
 	"time"
 
-	"github.com/opensynccrdt/opensynccrdt/internal/config"
-	"github.com/opensynccrdt/opensynccrdt/internal/webhook"
+	"github.com/shaunakrananaware/OpenSyncCRDT/internal/config"
+	"github.com/shaunakrananaware/OpenSyncCRDT/internal/webhook"
 )
 
 // webhookAuth calls the developer's endpoint to authorize every new connection.

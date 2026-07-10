@@ -12,11 +12,11 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/opensynccrdt/opensynccrdt/internal/cluster"
-	"github.com/opensynccrdt/opensynccrdt/internal/config"
-	"github.com/opensynccrdt/opensynccrdt/internal/metrics"
-	"github.com/opensynccrdt/opensynccrdt/internal/storage"
-	syncengine "github.com/opensynccrdt/opensynccrdt/internal/sync"
+	"github.com/shaunakrananaware/OpenSyncCRDT/internal/cluster"
+	"github.com/shaunakrananaware/OpenSyncCRDT/internal/config"
+	"github.com/shaunakrananaware/OpenSyncCRDT/internal/metrics"
+	"github.com/shaunakrananaware/OpenSyncCRDT/internal/storage"
+	syncengine "github.com/shaunakrananaware/OpenSyncCRDT/internal/sync"
 )
 
 // API holds the dependencies for the REST surface.
