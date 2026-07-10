@@ -153,8 +153,10 @@ jobs:
         include:
           - { goos: linux,  goarch: amd64, runner: ubuntu-latest, make: dist-linux-amd64 }
           - { goos: linux,  goarch: arm64, runner: ubuntu-latest, make: dist-linux-arm64 }
-          - { goos: darwin, goarch: amd64, runner: macos-13 }
-          - { goos: darwin, goarch: arm64, runner: macos-14 }
+          # Both darwin arches build on macos-14 (Apple Silicon); macos-13 (Intel)
+          # is deprecated. clang cross-compiles the amd64 slice via `-arch x86_64`.
+          - { goos: darwin, goarch: amd64, runner: macos-14, cc: "clang -arch x86_64" }
+          - { goos: darwin, goarch: arm64, runner: macos-14, cc: "clang -arch arm64" }
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v4
@@ -170,9 +172,10 @@ jobs:
       - name: Build (linux, static via zig)
         if: matrix.goos == 'linux'
         run: make ${{ matrix.make }} VERSION=${{ github.ref_name }}
-      - name: Build (darwin, native cgo)
+      - name: Build (darwin, cgo)
         if: matrix.goos == 'darwin'
         run: |
+          CC="${{ matrix.cc }}" \
           CGO_ENABLED=1 GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} \
             go build -ldflags "-s -w -X main.version=${{ github.ref_name }}" \
             -o dist/opensynccrdt-${{ matrix.goos }}-${{ matrix.goarch }} ./cmd/opensynccrdt
