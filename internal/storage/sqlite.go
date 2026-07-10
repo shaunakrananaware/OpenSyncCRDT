@@ -270,20 +270,7 @@ func (s *sqliteStore) queryOps(query string, args ...any) ([]StoredOp, error) {
 		return nil, fmt.Errorf("query ops: %w", err)
 	}
 	defer rows.Close()
-
-	ops := []StoredOp{}
-	for rows.Next() {
-		var (
-			op        StoredOp
-			createdMs int64
-		)
-		if err := rows.Scan(&op.DocID, &op.Seq, &op.SessionID, &op.Payload, &createdMs); err != nil {
-			return nil, fmt.Errorf("scan op: %w", err)
-		}
-		op.CreatedAt = time.UnixMilli(createdMs).UTC()
-		ops = append(ops, op)
-	}
-	return ops, rows.Err()
+	return scanOpRows(rows)
 }
 
 func (s *sqliteStore) GetLatestSeq(docID string) (int64, error) {
